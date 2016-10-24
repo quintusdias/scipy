@@ -441,7 +441,12 @@ class netcdf_file(object):
                 v = self.variables[n]
                 if v.isrec:
                     return (-1,)
-                return v._shape
+                elif len(v.shape) == 0:
+                    # Scalar variables must follow record variables.
+                    return (0,)
+                else:
+                    return v._shape
+
             variables = sorted(self.variables, key=sortkey, reverse=True)
 
             # Set the metadata for all variables.

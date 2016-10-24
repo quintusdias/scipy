@@ -4,6 +4,7 @@ from __future__ import division, print_function, absolute_import
 import os
 from os.path import join as pjoin, dirname
 import shutil
+import struct
 import tempfile
 import warnings
 from io import BytesIO
@@ -12,7 +13,7 @@ from contextlib import contextmanager
 
 import numpy as np
 from numpy.testing import (assert_, assert_allclose, assert_raises,
-    assert_equal, run_module_suite)
+    assert_equal, dec, run_module_suite)
 
 from scipy.io.netcdf import netcdf_file
 
@@ -23,6 +24,11 @@ TEST_DATA_PATH = pjoin(dirname(__file__), 'data')
 N_EG_ELS = 11  # number of elements for example variable
 VARTYPE_EG = 'b'  # var type for example variable
 
+try:
+    import netCDF4 as other_netcdf_impl
+    have_netcdf4 = True
+except:
+    have_netcdf4 = False
 
 @contextmanager
 def make_simple(*args, **kwargs):
@@ -392,6 +398,26 @@ def test_maskandscale():
             found = Temp[:].compressed()
             del Temp
             assert_allclose(found, expected)
+
+
+@dec.skipif(not have_netcdf4)
+def test_record_variable_preceeds_scalar_variable():
+    # ticket #6203
+    with in_tempdir():
+        with netcdf_file('6203.nc', "w") as ncfile:
+            nx = 3
+            data = np.arange(3)
+            ncfile.createDimension('nframes', None)
+            ncfile.createDimension('nx', nx)
+            var_data = ncfile.createVariable("data", 'i', ('nframes', 'nx'))
+            var_lon0 = ncfile.createVariable("lon0", 'i', ())
+            var_data[0, :] = data
+            var_lon0.assignValue(34)
+            ncfile.close()
+
+            # If the record variable preceeds the non-record variable, the
+            # constructor here will error out.
+            other_netcdf_impl.Dataset('6203.nc')
 
 
 # ------------------------------------------------------------------------
